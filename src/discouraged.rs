@@ -196,14 +196,14 @@ impl<'a> Speculative for ParseBuffer<'a> {
 
 /// Extensions to the `ParseStream` API to support manipulating invisible
 /// delimiters the same as if they were visible.
-pub trait AnyDelimiter {
+pub trait AnyDelimiter<'a> {
     /// Returns the delimiter, the span of the delimiter token, and the nested
     /// contents for further parsing.
-    fn parse_any_delimiter(&self) -> Result<(Delimiter, DelimSpan, ParseBuffer)>;
+    fn parse_any_delimiter(&self) -> Result<(Delimiter, DelimSpan, ParseBuffer<'a>)>;
 }
 
-impl<'a> AnyDelimiter for ParseBuffer<'a> {
-    fn parse_any_delimiter(&self) -> Result<(Delimiter, DelimSpan, ParseBuffer)> {
+impl<'a> AnyDelimiter<'a> for ParseBuffer<'a> {
+    fn parse_any_delimiter(&self) -> Result<(Delimiter, DelimSpan, Self)> {
         self.step(|cursor| {
             if let Some((content, delimiter, span, rest)) = cursor.any_group() {
                 let scope = crate::buffer::close_span_of_group(*cursor);
