@@ -78,6 +78,43 @@ impl TokenBuffer {
         let ptr = self.entries.as_ptr();
         unsafe { Cursor::create(ptr, ptr.add(self.entries.len() - 1)) }
     }
+
+    /// Creates a cursor referencing the token at index, `index`.
+    /// Panics if the index overflows the buffer.
+    pub fn cursor_at_index(&self, index: usize) -> Cursor {
+        unsafe {
+            let start_ptr = &self.entries[index] as *const Entry;
+            let end_ptr = self.entries.as_ptr().add(self.entries.len() - 1);
+            // we actually don't want to move past `Entry::End`s as this is a
+            // raw creation of a cursor, not an advancement from a previous one
+            Cursor {
+                ptr: start_ptr,
+                scope: end_ptr,
+                marker: PhantomData,
+            }
+        }
+    }
+
+    /// Gets the index into the buffer of the `Entry` pointed to by `cursor`.
+    /// Panics if the cursor doesn't point into the buffer.
+    pub fn index_of_cursor(&self, cursor: Cursor) -> usize {
+        assert_eq!(self.entries.as_ptr(), start_of_buffer(cursor));
+        unsafe { cursor.ptr.offset_from(self.entries.as_ptr()) as usize }
+    }
+
+    /// Swaps the entry at index, `index`, with `entry`, returning the old entry.
+    /// Panics if the index overflows the buffer or points to the final entry.
+    ///
+    /// It's safe because while some unsafe code relies on guarantees based
+    /// on the layout of TokenBuffer (eg. it must end in an `Entry::End(..)`
+    /// or cursors could overrun the end), this function panics when trying to
+    /// replace the final `Entry::End(..)`. However, arbitrarily replacing other
+    /// entries (eg. `Entry::Group`s and `Entry::End`s) could result in weird
+    /// bahaviour and possibly panics.
+    pub fn swap_entry(&mut self, index: usize, entry: Entry) -> Entry {
+        assert!(index < self.entries.len() - 1);
+        std::mem::replace(&mut self.entries[index], entry)
+    }
 }
 
 /// A cheaply copyable cursor into a `TokenBuffer`.
@@ -305,6 +342,36 @@ impl<'a> Cursor<'a> {
 
         let rest = unsafe { Cursor::create(self.ptr.add(len), self.scope) };
         Some((tree, rest))
+    }
+
+    /// Advances the cursor past the next `TokenTree` if it is pointing at one.
+    /// Returns `None` if the cursor has reached the end of its stream.
+    ///
+    /// Exactly the same as [`Cursor::token_tree`] but doesn't clone the `TokenTree`.
+    pub fn advance(self) -> Option<Cursor<'a>> {
+        let len = match self.entry() {
+            Entry::Group(_, end_offset) => *end_offset,
+            Entry::Literal(_) => 1,
+            Entry::Ident(_) => 1,
+            Entry::Punct(_) => 1,
+            Entry::End(_) => return None,
+        };
+
+        let rest = unsafe { Cursor::create(self.ptr.add(len), self.scope) };
+        Some(rest)
+    }
+
+    /// Returns a cursor pointing at the same token as `self`, but with the scope of
+    /// `end_cursor`.
+    ///
+    /// Panics if `end_cursor` doesn't point at a valid scope ending token or if `self`
+    /// and `end_cursor` have different scopes.
+    pub fn with_scope(self, end_cursor: Self) -> Option<Self> {
+        assert_eq!(self.scope, end_cursor.scope);
+        match end_cursor.entry() {
+            Entry::End(_) => unsafe { Some(Cursor::create(self.ptr, end_cursor.ptr)) },
+            _ => None,
+        }
     }
 
     /// Returns the `Span` of the current token, or `Span::call_site()` if this
