@@ -377,7 +377,7 @@ pub(crate) fn advance_step_cursor<'c, 'a>(proof: StepCursor<'c, 'a>, to: Cursor<
     unsafe { mem::transmute::<Cursor<'c>, Cursor<'a>>(to) }
 }
 
-pub(crate) fn new_parse_buffer(
+pub fn new_parse_buffer(
     scope: Span,
     cursor: Cursor,
     unexpected: Rc<Cell<Unexpected>>,
@@ -391,7 +391,7 @@ pub(crate) fn new_parse_buffer(
     }
 }
 
-pub(crate) enum Unexpected {
+pub enum Unexpected {
     None,
     Some(Span),
     Chain(Rc<Cell<Unexpected>>),
@@ -1275,7 +1275,7 @@ pub trait Parser: Sized {
     }
 }
 
-fn tokens_to_parse_buffer(tokens: &TokenBuffer) -> ParseBuffer {
+pub fn tokens_to_parse_buffer(tokens: &TokenBuffer) -> ParseBuffer {
     let scope = Span::call_site();
     let cursor = tokens.begin();
     let unexpected = Rc::new(Cell::new(Unexpected::None));

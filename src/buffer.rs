@@ -13,7 +13,7 @@ use std::marker::PhantomData;
 
 /// Internal type which is used instead of `TokenTree` to represent a token tree
 /// within a `TokenBuffer`.
-enum Entry {
+pub enum Entry {
     // Mimicking types from proc-macro.
     // Group entries contain the offset to the matching End entry.
     Group(Group, usize),
@@ -123,7 +123,7 @@ impl<'a> Cursor<'a> {
     /// This create method intelligently exits non-explicitly-entered
     /// `None`-delimited scopes when the cursor reaches the end of them,
     /// allowing for them to be treated transparently.
-    unsafe fn create(mut ptr: *const Entry, scope: *const Entry) -> Self {
+    pub unsafe fn create(mut ptr: *const Entry, scope: *const Entry) -> Self {
         // NOTE: If we're looking at a `End`, we want to advance the cursor
         // past it, unless `ptr == scope`, which means that we're at the edge of
         // our cursor's scope. We should only have `ptr != scope` at the exit
